@@ -44,11 +44,8 @@ class SapientinoCaseWrapper(Environment):
 
     def execute(self, actions):
         next_state, reward, terminal, _ = self.env.step(actions)
-        if (next_state[1][0] == 'sink'):
-            #print('Goal reached')
-            #print(terminal)
-            #terminal = True
-            next_state[1][0] = 2
+        if reward == 1.:
+            terminal = True
         return OpenAIGym.flatten_state(state=next_state, states_spec=self.states()), terminal, reward
 
     def render(self):
@@ -75,33 +72,32 @@ if __name__ == '__main__':
 #         reward_estimation=dict(horizon=20)
     )
     
+    episodes = 300
     render_interval = 5
-    
-    # Train for 300 episodes
-    for ep in range(300):
-    
-        print(f'Starting episode {ep}')
-    
-        # Initialize episode
+    cum_rewards = []
+        
+    for ep in range(episodes):
+        
         states = environment.reset()
         terminal = False
-        cum_reward = 0.0
-        
+        cum_rewards.append(0.)
         while not terminal:
-            # Episode timestep
             actions = agent.act(states=states)
             states, terminal, reward = environment.execute(actions=actions)
-            if reward != 0:
-            cum_reward += reward
+            if reward > 0.:
+                print('Goal reached')
+            cum_rewards[ep] += reward
             
             agent.observe(terminal=terminal, reward=reward)
 
-            if True or (ep % render_interval == 0):
-                environment.render()            
+            if ep % render_interval == render_interval - 1:
+                environment.render()        
                 time.sleep(0.025)
         
-        print(f'Episode {ep} cumulative reward: {cum_reward}')
-        print()
+        if ep % render_interval == render_interval - 1:
+            avg_cum_reward = sum(cum_rewards[-render_interval:]) / render_interval
+            print(f'Last {render_interval} episodes cum rewards:')
+            print(cum_rewards[-render_interval:])
     
     agent.close()
     environment.close()
