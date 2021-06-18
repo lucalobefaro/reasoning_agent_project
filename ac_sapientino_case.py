@@ -64,18 +64,18 @@ if __name__ == '__main__':
     agent_cfg = experiment_cfg['AGENT']
 
     colors = env_cfg['colors'].replace(' ', '').split(',')
-    environment = SapientinoCaseWrapper(
+   
+    environment = Environment.create(
+        environment='gym', 
+        level='SapientinoCase-v0', 
+        max_episode_timesteps=100,
         colors=colors,
         map_file=os.path.join(experiment_dir, env_cfg['map_file']),
         logdir=experiment_dir
     )
-    environment = Environment.create(
-        environment=environment,
-        max_episode_timesteps=env_cfg.getint('max_episode_timesteps')
-    )
-    
+
     agent = Agent.create(
-        agent='ac',
+        agent='a2c',
         network=os.path.join(experiment_dir, agent_cfg['policy_network']),
         critic=os.path.join(experiment_dir, agent_cfg['critic_network']),
         environment=environment,
@@ -98,7 +98,7 @@ if __name__ == '__main__':
             cum_rewards[ep] += reward    
             agent.observe(terminal=terminal, reward=reward)
             if ep % render_interval == render_interval - 1:
-                environment.render()        
+                environment.environment.render()        
                 time.sleep(0.025)
         
         if ep % render_interval == render_interval - 1:
