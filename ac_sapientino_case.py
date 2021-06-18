@@ -11,31 +11,20 @@ from gym_sapientino_case.env import SapientinoCase
 
 class SapientinoCaseWrapper(Environment):
 
-    def __init__(self):
+    def __init__(self, colors, map_file, logdir='.'):
         super().__init__()
         self.env = SapientinoCase(
-          colors=["red"],
-          map_file='monocolor_map.txt',
-          logdir=".",
+          colors=colors,
+          map_file=map_file,
+          logdir=logdir,
         )
         self.env = TimeLimit(self.env, 100)
-
 
     def states(self):
         return OpenAIGym.specs_from_gym_space(space=self.env.observation_space, allow_infinite_box_bounds=True)
 
     def actions(self):
         return OpenAIGym.specs_from_gym_space(space=self.env.action_space)
-
-    # Optional: should only be defined if environment has a natural fixed
-    # maximum episode length; otherwise specify maximum number of training
-    # timesteps via Environment.create(..., max_episode_timesteps=???)
-    def max_episode_timesteps(self):
-        return super().max_episode_timesteps()
-
-    # Optional additional steps to close environment
-    def close(self):
-        super().close()
 
     def reset(self):
         states = self.env.reset()
@@ -54,42 +43,59 @@ class SapientinoCaseWrapper(Environment):
 
 if __name__ == '__main__':
 
-    # Pre-defined or custom environment
+    import sys
+    import os
+    import configparser
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Train an AC agent on SapientinoCase.')
+    parser.add_argument('experiment_dir')
+    parser.add_argument('--render_interval', type=int, default=5)
+    parser.add_argument('--episodes', type=int, default=300)
+    args = parser.parse_args()
+    
+    experiment_dir = args.experiment_dir
+    render_interval = args.render_interval
+    episodes = args.episodes
+    
+    experiment_cfg = configparser.ConfigParser()
+    experiment_cfg.read(os.path.join(experiment_dir, 'params.cfg'))
+    env_cfg = experiment_cfg['ENVIRONMENT']
+    agent_cfg = experiment_cfg['AGENT']
+
+    colors = env_cfg['colors'].replace(' ', '').split(',')
+    environment = SapientinoCaseWrapper(
+        colors=colors,
+        map_file=os.path.join(experiment_dir, env_cfg['map_file']),
+        logdir=experiment_dir
+    )
     environment = Environment.create(
-        environment=SapientinoCaseWrapper, max_episode_timesteps=100
+        environment=environment,
+        max_episode_timesteps=env_cfg.getint('max_episode_timesteps')
     )
     
-    # Instantiate a Tensorforce agent
     agent = Agent.create(
         agent='ac',
-        environment=environment,  # alternatively: states, actions, (max_episode_timesteps)
-        batch_size=8,
-#         memory=10000,
-#         update=dict(unit='timesteps', batch_size=64),
-#         optimizer=dict(type='adam', learning_rate=3e-4),
-#         policy=dict(network='auto'),
-#         objective='policy_gradient',
-#         reward_estimation=dict(horizon=20)
+        environment=environment,
+        batch_size=agent_cfg.getint('batch_size'),
     )
-    
-    episodes = 300
-    render_interval = 5
+
     cum_rewards = []
+    
+    print(agent.get_architecture())
+    print(agent.get_specification())
         
     for ep in range(episodes):
         
         states = environment.reset()
         terminal = False
         cum_rewards.append(0.)
+        
         while not terminal:
             actions = agent.act(states=states)
             states, terminal, reward = environment.execute(actions=actions)
-            if reward > 0.:
-                print('Goal reached')
-            cum_rewards[ep] += reward
-            
+            cum_rewards[ep] += reward    
             agent.observe(terminal=terminal, reward=reward)
-
             if ep % render_interval == render_interval - 1:
                 environment.render()        
                 time.sleep(0.025)

@@ -1,2 +1,4 @@
 *.dot
 *.svg
+experiments/*
+.DS_Store
