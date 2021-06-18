@@ -76,6 +76,8 @@ if __name__ == '__main__':
     
     agent = Agent.create(
         agent='ac',
+        network=os.path.join(experiment_dir, agent_cfg['policy_network']),
+        critic=os.path.join(experiment_dir, agent_cfg['critic_network']),
         environment=environment,
         batch_size=agent_cfg.getint('batch_size'),
     )
@@ -83,7 +85,6 @@ if __name__ == '__main__':
     cum_rewards = []
     
     print(agent.get_architecture())
-    print(agent.get_specification())
         
     for ep in range(episodes):
         
@@ -102,8 +103,8 @@ if __name__ == '__main__':
         
         if ep % render_interval == render_interval - 1:
             avg_cum_reward = sum(cum_rewards[-render_interval:]) / render_interval
-            print(f'Last {render_interval} episodes cum rewards:')
-            print(cum_rewards[-render_interval:])
+            print(f'Last {render_interval} episodes avg cum rewards:')
+            print(sum(cum_rewards[-render_interval:]) / render_interval)
     
     agent.close()
     environment.close()
