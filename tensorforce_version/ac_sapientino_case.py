@@ -9,37 +9,6 @@ from gym.wrappers import TimeLimit
 from gym_sapientino_case.env import SapientinoCase
 
 
-class SapientinoCaseWrapper(Environment):
-
-    def __init__(self, colors, map_file, logdir='.'):
-        super().__init__()
-        self.env = SapientinoCase(
-          colors=colors,
-          map_file=map_file,
-          logdir=logdir,
-        )
-        self.env = TimeLimit(self.env, 100)
-
-    def states(self):
-        return OpenAIGym.specs_from_gym_space(space=self.env.observation_space, allow_infinite_box_bounds=True)
-
-    def actions(self):
-        return OpenAIGym.specs_from_gym_space(space=self.env.action_space)
-
-    def reset(self):
-        states = self.env.reset()
-        states = OpenAIGym.flatten_state(state=states, states_spec=self.states())
-        return states
-
-    def execute(self, actions):
-        next_state, reward, terminal, _ = self.env.step(actions)
-        if reward == 1.:
-            terminal = True
-        return OpenAIGym.flatten_state(state=next_state, states_spec=self.states()), terminal, reward
-
-    def render(self):
-        self.env.render()
-
 
 if __name__ == '__main__':
 
@@ -68,7 +37,7 @@ if __name__ == '__main__':
     environment = Environment.create(
         environment='gym', 
         level='SapientinoCase-v0', 
-        max_episode_timesteps=100,
+        max_episode_timesteps=env_cfg.getint("max_episode_timesteps"),
         colors=colors,
         map_file=os.path.join(experiment_dir, env_cfg['map_file']),
         logdir=experiment_dir
@@ -87,24 +56,48 @@ if __name__ == '__main__':
     print(agent.get_architecture())
         
     for ep in range(episodes):
+    
+    	# Record episode experience
+        episode_states = list()
+        episode_internals = list()
+        episode_actions = list()
+        episode_terminal = list()
+        episode_reward = list()
         
         states = environment.reset()
+        internals = agent.initial_internals()
         terminal = False
         cum_rewards.append(0.)
         
         while not terminal:
-            actions = agent.act(states=states)
+            episode_internals.append(internals)
+            episode_states.append(states)
+
+            actions, internals = agent.act(states=states, internals=internals, independent=True)
+            
+            episode_actions.append(actions)
+            
             states, terminal, reward = environment.execute(actions=actions)
+            
+            episode_terminal.append(terminal)
+            episode_reward.append(reward)
+            
             cum_rewards[ep] += reward    
-            agent.observe(terminal=terminal, reward=reward)
-            if ep % render_interval == render_interval - 1:
-                environment.environment.render()        
-                time.sleep(0.025)
-        
+            
+                    
         if ep % render_interval == render_interval - 1:
             avg_cum_reward = sum(cum_rewards[-render_interval:]) / render_interval
             print(f'Last {render_interval} episodes avg cum rewards:')
             print(sum(cum_rewards[-render_interval:]) / render_interval)
+        
+        # Feed recorded experience to agent
+        agent.experience(
+            states=episode_states, internals=episode_internals, actions=episode_actions,
+            terminal=episode_terminal, reward=episode_reward
+        )
+
+        # Perform update
+        agent.update()
     
     agent.close()
     environment.close()
