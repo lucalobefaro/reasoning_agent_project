@@ -126,7 +126,7 @@ def main():
     batch_size = agent_cfg.getint('batch_size')
 
     # Train the nets
-    actor, critic, env = sapientino_training(colors, map_file, experiment_dir, max_episode_timesteps, batch_size, episodes, render)
+    actor, critic, env = sapientino_training(colors, map_file, experiment_dir, max_episode_timesteps, batch_size, episodes, render, render_interval)
 
     # Save the models
     actor.save_model_weights(os.path.join(experiment_dir, "actor.weights"))
@@ -138,7 +138,7 @@ def main():
 
 
 
-def sapientino_training(colors, map_file, experiment_dir, max_episode_timesteps, batch_size, n_episodes, render):
+def sapientino_training(colors, map_file, experiment_dir, max_episode_timesteps, batch_size, n_episodes, render, render_interval):
 
     # Create the environment
     env = SapientinoCase(
@@ -155,7 +155,7 @@ def sapientino_training(colors, map_file, experiment_dir, max_episode_timesteps,
     n_actions = 5
     
     # Initialize the nets
-    actor = Actor(state_dim, n_actions)
+    actor = Actor(state_dim, n_actions, len(colors))
     critic = Critic(state_dim)
 
     # Initialize optimizers

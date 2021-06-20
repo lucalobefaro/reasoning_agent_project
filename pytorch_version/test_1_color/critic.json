@@ -1,4 +1,0 @@
-[
-    {"type": "dense", "size": 16, "activation": "relu"},
-    {"type": "dense", "size": 8, "activation": "relu"}
-]
