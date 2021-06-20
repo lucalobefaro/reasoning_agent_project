@@ -19,6 +19,12 @@ class Actor(nn.Module):
     def forward(self, X):
         return self.model(X)
 
+    def save_model_weights(self, path:str):
+        torch.save(self.state_dict(), path)
+
+    def load_model_weights(self, path:str, device:str='cpu'):
+        self.load_state_dict(torch.load(path, map_location=torch.device(device)))
+
 
 
 class Critic(nn.Module):
@@ -35,5 +41,11 @@ class Critic(nn.Module):
 
     def forward(self, X):
         return self.model(X)
+
+    def save_model_weights(self, path:str):
+        torch.save(self.state_dict(), path)
+
+    def load_model_weights(self, path:str, device:str='cpu'):
+        self.load_state_dict(torch.load(path, map_location=torch.device(device)))
 
 

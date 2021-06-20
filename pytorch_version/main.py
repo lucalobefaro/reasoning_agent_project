@@ -8,8 +8,16 @@ from gym_sapientino_case.env import SapientinoCase
 import time
 from gym.wrappers import TimeLimit
 
+import sys
+import os
+import configparser
+import argparse
 
 
+
+# A function that format the state given by the
+# sapientino environment in such a way it is
+# good to be putted in the nets
 def state2tensor(state):
     modified_state = [state[0][0], state[0][1], state[0][2], state[0][3]]
     for el in state[1]:
@@ -19,6 +27,8 @@ def state2tensor(state):
 
 
 
+# Class to memorize the history of env exploration
+# used to train the nets in batch
 class Memory():
 
     def __init__(self):
@@ -57,6 +67,8 @@ class Memory():
         return len(self.rewards)
 
 
+
+# Function to train the nets (actor and critic) in batches
 def train(memory, q_val, adam_critic, adam_actor, gamma=0.99):
     
     values = torch.stack(memory.values)
@@ -89,21 +101,19 @@ def train(memory, q_val, adam_critic, adam_actor, gamma=0.99):
 def main():
 
     # Argument parsing
-
-    import sys
-    import os
-    import configparser
-    import argparse
-
     parser = argparse.ArgumentParser(description='Train an AC agent on SapientinoCase.')
     parser.add_argument('experiment_dir')
     parser.add_argument('--render_interval', type=int, default=5)
     parser.add_argument('--episodes', type=int, default=300)
+    parser.add_argument('--render', type=int, default=0)
+    parser.add_argument('--evaluate', type=int, default=1)
     args = parser.parse_args()
 
     experiment_dir = args.experiment_dir
     render_interval = args.render_interval
     episodes = args.episodes
+    render = args.render
+    evaluate = args.evaluate
 
     experiment_cfg = configparser.ConfigParser()
     experiment_cfg.read(os.path.join(experiment_dir, 'params.cfg'))
@@ -111,16 +121,34 @@ def main():
     agent_cfg = experiment_cfg['AGENT']
 
     colors = env_cfg['colors'].replace(' ', '').split(',')
+    map_file = os.path.join(experiment_dir, env_cfg['map_file'])
+    max_episode_timesteps = env_cfg.getint("max_episode_timesteps")
+    batch_size = agent_cfg.getint('batch_size')
+
+    # Train the nets
+    actor, critic, env = sapientino_training(colors, map_file, experiment_dir, max_episode_timesteps, batch_size, episodes, render)
+
+    # Save the models
+    actor.save_model_weights(os.path.join(experiment_dir, "actor.weights"))
+    critic.save_model_weights(os.path.join(experiment_dir, "critic.weights"))
+
+    # Eval the model
+    if(evaluate):
+        sapientino_eval(actor, critic, env, render)
+
+
+
+def sapientino_training(colors, map_file, experiment_dir, max_episode_timesteps, batch_size, n_episodes, render):
 
     # Create the environment
     env = SapientinoCase(
         colors=colors,
-        map_file=os.path.join(experiment_dir, env_cfg['map_file']),
+        map_file=map_file,
         logdir=experiment_dir
     )
 
     # Set the max number of steps
-    env = TimeLimit(env, env_cfg.getint("max_episode_timesteps"))
+    env = TimeLimit(env, max_episode_timesteps)
 
     # Initialize dimensions
     state_dim = 4 + 1
@@ -138,27 +166,25 @@ def main():
     memory = Memory()
 
     # MAIN LOOP
-    batch_size = agent_cfg.getint('batch_size')
-    n_episodes = episodes
     cum_rewards = []
-    
     for ep in range(n_episodes):
         done = False
         total_reward = 0
         state = env.reset()
         steps = 0
 
-        print(f"\rCurrent episode {ep}", end="")
+        print(f"\rCurrent episode [{ep}]", end="")
 
         cum_rewards.append(0.)
 
         while not done:
             
-            if ep % render_interval == render_interval - 1:
+            # Render the environment
+            if render and ep % render_interval == render_interval - 1:
                 env.render()
                 time.sleep(0.01)
 
-            # Sample the action from a Categorical distribution
+            # Sample the action from a Categorical distribution (to allow exploration)
             probs = actor(state2tensor(state))
             dist = torch.distributions.Categorical(probs=probs)
             action = dist.sample()
@@ -166,11 +192,12 @@ def main():
             # Apply the action on the env and take the observation (next_state)
             next_state, reward, done, info = env.step(action.detach().data.numpy())
             
+            # Update cumulative reward, number of steps and the state
             cum_rewards[ep] += reward
             steps += 1
             state = next_state
             
-            # Expand memeory
+            # Add new infos in the memory
             memory.add(dist.log_prob(action), critic(state2tensor(state)), reward, done)
 
             # Train if done or num steps > batch_size
@@ -179,10 +206,47 @@ def main():
                 train(memory, last_q_val, adam_critic, adam_actor)
                 memory.clear()
             
+        # Print the average reward among the last 10 episodes
         if ep % 10 == 9:
             avg_cum_reward = sum(cum_rewards[-10:]) / 10
-            print(f'\nLast 10 episodes avg cum rewards: ', end="")
-            print(sum(cum_rewards[-10:]) / 10)
+            print(f' Last 10 episodes avg cum rewards: ', end="")
+            print("[" + str(sum(cum_rewards[-10:]) / 10) + "]", end="")
+
+    print("\n")
+    
+    return actor, critic, env
+
+
+def sapientino_eval(actor, critic, env, render, n_episodes=100):
+
+    # Eval
+    print("Evaluation Started.")
+    tot_reward = 0.0
+    ep = 0
+    for ep in range(n_episodes):
+        state = env.reset()
+        done = False
+
+        print(f"\rCurrent episode: {ep}", end="")
+
+        while not done:
+            env.render()
+            time.sleep(0.05)
+            
+            # Sample the action from a Categorical distribution
+            probs = actor(state2tensor(state))
+            action = torch.argmax(probs, dim=0)
+
+            # Apply the action on the env and take the observation (next_state)
+            next_state, reward, done, info = env.step(action.detach().data.numpy())
+            
+            # Udpate the state
+            state = next_state
+
+            tot_reward += reward
+    
+    print(f"\nEVAL RESULT: {tot_reward}")
+
 
 
 if __name__ == '__main__':
