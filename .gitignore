@@ -2,5 +2,4 @@
 *.svg
 experiments/*
 .DS_Store
-pytorch_version/test_1_color/actor.weights
-pytorch_version/test_1_color/critic.weights
+*.weights

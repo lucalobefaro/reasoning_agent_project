@@ -7,24 +7,32 @@ class Actor(nn.Module):
      
     def __init__(self, state_dim, n_actions, n_colors):
         super().__init__()
-        self.n_actions = n_actions
-        self.model = nn.Sequential(
-                nn.Linear(state_dim, 64),
-                nn.Tanh(),
-                nn.Linear(64, 32),
-                nn.Tanh(),
-                nn.Linear(32, n_actions*n_colors),
-                nn.Softmax()
+        self.red_feats = nn.Sequential(
+                        nn.Linear(state_dim, 64),
+                        nn.Tanh(),
+                        nn.Linear(64, 32),
+                        nn.Tanh(),
+                        nn.Linear(32, n_actions),
+                        nn.Softmax()
         )
+        self.yellow_feats = nn.Sequential(
+                        nn.Linear(state_dim, 64),
+                        nn.Tanh(),
+                        nn.Linear(64, 32),
+                        nn.Tanh(),
+                        nn.Linear(32, n_actions),
+                        nn.Softmax()
+        )
+        
 
-    def forward(self, X):
-        X = self.model(X)
-        if X[-1] > 0:
-            X = X[-self.n_actions:]
+    def forward(self, X): 
+        if X[-1] != 1:
+            out = self.red_feats(X)
         else:
-            X = X[:self.n_actions]
-        return X
-
+            out = self.yellow_feats(X)
+        return out
+        
+    
     def save_model_weights(self, path:str):
         torch.save(self.state_dict(), path)
 
@@ -37,7 +45,14 @@ class Critic(nn.Module):
 
     def __init__(self, state_dim):
         super().__init__()
-        self.model = nn.Sequential(
+        self.red_feats = nn.Sequential(
+                nn.Linear(state_dim, 64),
+                nn.ReLU(),
+                nn.Linear(64, 32),
+                nn.ReLU(),
+                nn.Linear(32, 1)
+        )
+        self.yellow_feats = nn.Sequential(
                 nn.Linear(state_dim, 64),
                 nn.ReLU(),
                 nn.Linear(64, 32),
@@ -46,7 +61,11 @@ class Critic(nn.Module):
         )
 
     def forward(self, X):
-        return self.model(X)
+        if X[-1] != 1:
+            out = self.red_feats(X)
+        else:
+            out = self.yellow_feats(X)
+        return out
 
     def save_model_weights(self, path:str):
         torch.save(self.state_dict(), path)
@@ -54,4 +73,4 @@ class Critic(nn.Module):
     def load_model_weights(self, path:str, device:str='cpu'):
         self.load_state_dict(torch.load(path, map_location=torch.device(device)))
 
-
+#rwd n passi to goal

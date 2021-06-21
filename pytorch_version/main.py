@@ -159,8 +159,8 @@ def sapientino_training(colors, map_file, experiment_dir, max_episode_timesteps,
     critic = Critic(state_dim)
 
     # Initialize optimizers
-    adam_actor = torch.optim.Adam(actor.parameters(), lr=1e-3)
-    adam_critic = torch.optim.Adam(critic.parameters(), lr=1e-3)
+    adam_actor = torch.optim.Adam(actor.parameters(), lr=4e-4)
+    adam_critic = torch.optim.Adam(critic.parameters(), lr=4e-4)
 
     # Initialize the memory
     memory = Memory()
@@ -192,6 +192,14 @@ def sapientino_training(colors, map_file, experiment_dir, max_episode_timesteps,
             # Apply the action on the env and take the observation (next_state)
             next_state, reward, done, info = env.step(action.detach().data.numpy())
             
+            # DEBUG
+            #if(next_state[1][0] == 3):
+            #    print(steps)
+
+            # If we go in the error state stop the episode
+            if(next_state[1][0] == 2):
+                done = True
+
             # Update cumulative reward, number of steps and the state
             cum_rewards[ep] += reward
             steps += 1
@@ -230,8 +238,10 @@ def sapientino_eval(actor, critic, env, render, n_episodes=100):
         print(f"\rCurrent episode: {ep}", end="")
 
         while not done:
+            
+            #if render:
             env.render()
-            time.sleep(0.05)
+            time.sleep(0.01)
             
             # Sample the action from a Categorical distribution
             probs = actor(state2tensor(state))
