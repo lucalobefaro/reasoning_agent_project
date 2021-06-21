@@ -191,15 +191,7 @@ def sapientino_training(colors, map_file, experiment_dir, max_episode_timesteps,
             
             # Apply the action on the env and take the observation (next_state)
             next_state, reward, done, info = env.step(action.detach().data.numpy())
-            
-            # DEBUG
-            #if(next_state[1][0] == 3):
-            #    print(steps)
-
-            # If we go in the error state stop the episode
-            if(next_state[1][0] == 2):
-                done = True
-
+           
             # Update cumulative reward, number of steps and the state
             cum_rewards[ep] += reward
             steps += 1
