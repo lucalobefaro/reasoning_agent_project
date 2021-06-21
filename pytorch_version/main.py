@@ -107,6 +107,7 @@ def main():
     parser.add_argument('--episodes', type=int, default=300)
     parser.add_argument('--render', type=int, default=0)
     parser.add_argument('--evaluate', type=int, default=1)
+    parser.add_argument('--resume', action='store_true')
     args = parser.parse_args()
 
     experiment_dir = args.experiment_dir
@@ -114,6 +115,7 @@ def main():
     episodes = args.episodes
     render = args.render
     evaluate = args.evaluate
+    resume = args.resume
 
     experiment_cfg = configparser.ConfigParser()
     experiment_cfg.read(os.path.join(experiment_dir, 'params.cfg'))
@@ -124,21 +126,7 @@ def main():
     map_file = os.path.join(experiment_dir, env_cfg['map_file'])
     max_episode_timesteps = env_cfg.getint("max_episode_timesteps")
     batch_size = agent_cfg.getint('batch_size')
-
-    # Train the nets
-    actor, critic, env = sapientino_training(colors, map_file, experiment_dir, max_episode_timesteps, batch_size, episodes, render, render_interval)
-
-    # Save the models
-    actor.save_model_weights(os.path.join(experiment_dir, "actor.weights"))
-    critic.save_model_weights(os.path.join(experiment_dir, "critic.weights"))
-
-    # Eval the model
-    if(evaluate):
-        sapientino_eval(actor, critic, env, render)
-
-
-
-def sapientino_training(colors, map_file, experiment_dir, max_episode_timesteps, batch_size, n_episodes, render, render_interval):
+    lr = agent_cfg.getfloat('learning_rate')
 
     # Create the environment
     env = SapientinoCase(
@@ -153,14 +141,38 @@ def sapientino_training(colors, map_file, experiment_dir, max_episode_timesteps,
     # Initialize dimensions
     state_dim = 4 + 1
     n_actions = 5
-    
+
     # Initialize the nets
     actor = Actor(state_dim, n_actions, len(colors))
     critic = Critic(state_dim)
 
+    # Load the models if resuming
+    if resume:
+        print('Loading previously saved model weights')
+        actor.load_model_weights(os.path.join(experiment_dir, "actor.weights"))
+        critic.load_model_weights(os.path.join(experiment_dir, "critic.weights"))
+
+    for cycles in range(int(episodes/100)):
+        
+        # Train the nets
+        sapientino_training(env, actor, critic, lr, batch_size, 100, render, render_interval)
+
+        print('Saving model weights')
+        # Save the models
+        actor.save_model_weights(os.path.join(experiment_dir, "actor.weights"))
+        critic.save_model_weights(os.path.join(experiment_dir, "critic.weights"))
+
+        # Eval the model
+        if(evaluate):
+            sapientino_eval(actor, critic, env, render, n_episodes=5)
+
+
+
+def sapientino_training(env, actor, critic, lr, batch_size, n_episodes, render, render_interval):
+
     # Initialize optimizers
-    adam_actor = torch.optim.Adam(actor.parameters(), lr=4e-4)
-    adam_critic = torch.optim.Adam(critic.parameters(), lr=4e-4)
+    adam_actor = torch.optim.Adam(actor.parameters(), lr=lr)
+    adam_critic = torch.optim.Adam(critic.parameters(), lr=lr)
 
     # Initialize the memory
     memory = Memory()
@@ -213,11 +225,8 @@ def sapientino_training(colors, map_file, experiment_dir, max_episode_timesteps,
             print("[" + str(sum(cum_rewards[-10:]) / 10) + "]", end="")
 
     print("\n")
-    
-    return actor, critic, env
 
-
-def sapientino_eval(actor, critic, env, render, n_episodes=100):
+def sapientino_eval(actor, critic, env, render, n_episodes=1):
 
     # Eval
     print("Evaluation Started.")
@@ -231,9 +240,9 @@ def sapientino_eval(actor, critic, env, render, n_episodes=100):
 
         while not done:
             
-            #if render:
-            env.render()
-            time.sleep(0.01)
+            if render:
+                env.render()
+                time.sleep(0.01)
             
             # Sample the action from a Categorical distribution
             probs = actor(state2tensor(state))

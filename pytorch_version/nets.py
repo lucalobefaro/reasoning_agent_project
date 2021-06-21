@@ -13,7 +13,7 @@ class Actor(nn.Module):
                         nn.Linear(64, 32),
                         nn.Tanh(),
                         nn.Linear(32, n_actions),
-                        nn.Softmax()
+                        nn.Softmax(dim=-1)
         )
         self.yellow_feats = nn.Sequential(
                         nn.Linear(state_dim, 64),
@@ -21,7 +21,7 @@ class Actor(nn.Module):
                         nn.Linear(64, 32),
                         nn.Tanh(),
                         nn.Linear(32, n_actions),
-                        nn.Softmax()
+                        nn.Softmax(dim=-1)
         )
         
 
