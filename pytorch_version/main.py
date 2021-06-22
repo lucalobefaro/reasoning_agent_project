@@ -12,6 +12,7 @@ import sys
 import os
 import configparser
 import argparse
+import pickle
 
 
 
@@ -121,12 +122,18 @@ def main():
     experiment_cfg.read(os.path.join(experiment_dir, 'params.cfg'))
     env_cfg = experiment_cfg['ENVIRONMENT']
     agent_cfg = experiment_cfg['AGENT']
+    other_cfg = experiment_cfg['OTHER']
 
     colors = env_cfg['colors'].replace(' ', '').split(',')
     map_file = os.path.join(experiment_dir, env_cfg['map_file'])
     max_episode_timesteps = env_cfg.getint("max_episode_timesteps")
     batch_size = agent_cfg.getint('batch_size')
     lr = agent_cfg.getfloat('learning_rate')
+    seed = other_cfg.getint('seed', -1)
+    history_file = os.path.join(experiment_dir, "history.pkl")
+
+    if seed >= 0:
+        torch.manual_seed(seed)
 
     # Create the environment
     env = SapientinoCase(
@@ -151,20 +158,34 @@ def main():
         print('Loading previously saved model weights')
         actor.load_model_weights(os.path.join(experiment_dir, "actor.weights"))
         critic.load_model_weights(os.path.join(experiment_dir, "critic.weights"))
+        print('Loading episode history')
+        with open(history_file, "rb") as f:
+            cum_rewards, steps = pickle.load(f)
+    else:
+        cum_rewards = []
+        steps = []
 
-    for cycles in range(int(episodes/100)):
-        
+    cycle_interval = 100
+
+    for cycles in range(int(episodes/cycle_interval)):
+
         # Train the nets
-        sapientino_training(env, actor, critic, lr, batch_size, 100, render, render_interval)
+        new_cum_rewards, new_steps = sapientino_training(env, actor, critic, lr, batch_size, cycle_interval, render, render_interval)
+        cum_rewards += new_cum_rewards
+        steps += new_steps
 
         print('Saving model weights')
         # Save the models
         actor.save_model_weights(os.path.join(experiment_dir, "actor.weights"))
         critic.save_model_weights(os.path.join(experiment_dir, "critic.weights"))
 
+        print('Saving episode history')
+        with open(history_file, "wb") as f:
+            pickle.dump((cum_rewards,steps), f)
+
         # Eval the model
         if(evaluate):
-            sapientino_eval(actor, critic, env, render, n_episodes=5)
+            sapientino_eval(actor, critic, env, render, n_episodes=1)
 
 
 
@@ -179,11 +200,12 @@ def sapientino_training(env, actor, critic, lr, batch_size, n_episodes, render, 
 
     # MAIN LOOP
     cum_rewards = []
+    steps = []
     for ep in range(n_episodes):
         done = False
         total_reward = 0
         state = env.reset()
-        steps = 0
+        steps.append(0)
 
         print(f"\rCurrent episode [{ep}]", end="")
 
@@ -206,14 +228,14 @@ def sapientino_training(env, actor, critic, lr, batch_size, n_episodes, render, 
            
             # Update cumulative reward, number of steps and the state
             cum_rewards[ep] += reward
-            steps += 1
+            steps[ep] += 1
             state = next_state
             
             # Add new infos in the memory
             memory.add(dist.log_prob(action), critic(state2tensor(state)), reward, done)
 
             # Train if done or num steps > batch_size
-            if done or (steps % batch_size == 0):
+            if done or (steps[ep] % batch_size == 0):
                 last_q_val = critic(state2tensor(next_state)).detach().data.numpy()
                 train(memory, last_q_val, adam_critic, adam_actor)
                 memory.clear()
@@ -225,6 +247,9 @@ def sapientino_training(env, actor, critic, lr, batch_size, n_episodes, render, 
             print("[" + str(sum(cum_rewards[-10:]) / 10) + "]", end="")
 
     print("\n")
+    
+    return cum_rewards, steps
+    
 
 def sapientino_eval(actor, critic, env, render, n_episodes=1):
 
@@ -240,9 +265,8 @@ def sapientino_eval(actor, critic, env, render, n_episodes=1):
 
         while not done:
             
-            if render:
-                env.render()
-                time.sleep(0.01)
+            env.render()
+            time.sleep(0.05)
             
             # Sample the action from a Categorical distribution
             probs = actor(state2tensor(state))
