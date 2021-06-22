@@ -3,7 +3,7 @@ import torch
 import gym
 from torch import nn
 import matplotlib.pyplot as plt
-from nets import *
+#from nets import *
 from gym_sapientino_case.env import SapientinoCase
 import time
 from gym.wrappers import TimeLimit
@@ -13,6 +13,8 @@ import os
 import configparser
 import argparse
 import pickle
+
+import importlib
 
 
 
@@ -135,6 +137,14 @@ def main():
     if seed >= 0:
         torch.manual_seed(seed)
 
+    # Import the networks from the folder
+    if(experiment_dir[-1] == "/"):
+        nets_dir = experiment_dir[:-1]
+    else:
+        nets_dir = experiment_dir
+    Actor = getattr(importlib.import_module(nets_dir + ".nets"), "Actor")
+    Critic = getattr(importlib.import_module(nets_dir + ".nets"), "Critic")
+
     # Create the environment
     env = SapientinoCase(
         colors=colors,
@@ -165,10 +175,10 @@ def main():
         cum_rewards = []
         steps = []
 
-    cycle_interval = 100
+    cycle_interval = 10
 
     for cycles in range(int(episodes/cycle_interval)):
-
+        
         # Train the nets
         new_cum_rewards, new_steps = sapientino_training(env, actor, critic, lr, batch_size, cycle_interval, render, render_interval)
         cum_rewards += new_cum_rewards
@@ -183,11 +193,15 @@ def main():
         with open(history_file, "wb") as f:
             pickle.dump((cum_rewards,steps), f)
 
+        # Print how many episodes done so far and the total reward
+        n_episodes_done = cycle_interval * (cycles+1)
+        total_rwd = sum(cum_rewards)
+        print(f"[ --- Episodes completed so far: [{n_episodes_done}] --- Total reward [{total_rwd}] ---]")
+
         # Eval the model
         if(evaluate):
-            sapientino_eval(actor, critic, env, render, n_episodes=1)
-
-
+            eval_rwd = sapientino_eval(actor, critic, env, render, n_episodes=1)
+            
 
 def sapientino_training(env, actor, critic, lr, batch_size, n_episodes, render, render_interval):
 
@@ -207,7 +221,7 @@ def sapientino_training(env, actor, critic, lr, batch_size, n_episodes, render, 
         state = env.reset()
         steps.append(0)
 
-        print(f"\rCurrent episode [{ep}]", end="")
+        print(f"\rCurrent train episode [{ep}]", end="")
 
         cum_rewards.append(0.)
 
@@ -245,8 +259,6 @@ def sapientino_training(env, actor, critic, lr, batch_size, n_episodes, render, 
             avg_cum_reward = sum(cum_rewards[-10:]) / 10
             print(f' Last 10 episodes avg cum rewards: ', end="")
             print("[" + str(sum(cum_rewards[-10:]) / 10) + "]", end="")
-
-    print("\n")
     
     return cum_rewards, steps
     
@@ -261,7 +273,7 @@ def sapientino_eval(actor, critic, env, render, n_episodes=1):
         state = env.reset()
         done = False
 
-        print(f"\rCurrent episode: {ep}", end="")
+        print(f"\rCurrent eval episode: {ep}", end="")
 
         while not done:
             
@@ -280,9 +292,12 @@ def sapientino_eval(actor, critic, env, render, n_episodes=1):
 
             tot_reward += reward
     
-    print(f"\nEVAL RESULT: {tot_reward}")
+    print(f"\nEVAL RESULT: {tot_reward}\n")
+    
+    return tot_reward
 
 
 
 if __name__ == '__main__':
+    print("\n")
     main()
