@@ -23,6 +23,10 @@ class Actor(nn.Module):
                         nn.Linear(32, n_actions),
                         nn.Softmax(dim=-1)
         )
+        
+        self.red_feats.load_state_dict(torch.load("case_3_colors_transfer_learning/rosso", map_location=torch.device('cpu')))
+        self.yellow_feats.load_state_dict(torch.load("case_3_colors_transfer_learning/giallow", map_location=torch.device('cpu')))
+
         self.blue_feats =  nn.Sequential(
                         nn.Linear(state_dim, 64),
                         nn.Tanh(),
@@ -68,6 +72,10 @@ class Critic(nn.Module):
                 nn.ReLU(),
                 nn.Linear(32, 1)
         )
+
+        self.red_feats.load_state_dict(torch.load("case_3_colors_transfer_learning/rosso_critico", map_location=torch.device('cpu')))
+        self.yellow_feats.load_state_dict(torch.load("case_3_colors_transfer_learning/giallow_critico", map_location=torch.device('cpu')))
+
         self.blue_feats = nn.Sequential(
                 nn.Linear(state_dim, 64),
                 nn.ReLU(),
