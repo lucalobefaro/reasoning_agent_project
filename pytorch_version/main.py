@@ -175,7 +175,7 @@ def main():
         cum_rewards = []
         steps = []
 
-    cycle_interval = 10
+    cycle_interval = 100
 
     for cycles in range(int(episodes/cycle_interval)):
         
@@ -278,7 +278,7 @@ def sapientino_eval(actor, critic, env, render, n_episodes=1):
         while not done:
             
             env.render()
-            time.sleep(0.05)
+            time.sleep(0.02)
             
             # Sample the action from a Categorical distribution
             probs = actor(state2tensor(state))
