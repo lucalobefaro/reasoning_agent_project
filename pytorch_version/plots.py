@@ -4,10 +4,10 @@ import gym
 from torch import nn
 import matplotlib.pyplot as plt
 from matplotlib import animation
-from nets import *
 from gym_sapientino_case.env import SapientinoCase
 import time
 from gym.wrappers import TimeLimit
+import importlib
 
 import sys
 import os
@@ -39,6 +39,14 @@ def main():
     experiment_dir = args.experiment_dir
     history_file = os.path.join(experiment_dir, "history.pkl")
 
+    # Import the networks from the folder
+    if(experiment_dir[-1] == "/"):
+        nets_dir = experiment_dir[:-1]
+    else:
+        nets_dir = experiment_dir
+    Actor = getattr(importlib.import_module(nets_dir + ".nets"), "Actor")
+    Critic = getattr(importlib.import_module(nets_dir + ".nets"), "Critic")
+
     experiment_cfg = configparser.ConfigParser()
     experiment_cfg.read(os.path.join(experiment_dir, 'params.cfg'))
     env_cfg = experiment_cfg['ENVIRONMENT']
@@ -62,22 +70,24 @@ def main():
     # Initialize dimensions
     state_dim = 4 + 1
     n_actions = 5
+    n_states = env.observation_space[-1].nvec[0]
 
     # Initialize the nets
-    actor = Actor(state_dim, n_actions, len(colors))
-    critic = Critic(state_dim)
+    actor = Actor(state_dim, n_actions, n_states)
+    critic = Critic(state_dim, n_states)
 
     actor.load_model_weights(os.path.join(experiment_dir, "actor.weights"))
     critic.load_model_weights(os.path.join(experiment_dir, "critic.weights"))
 
     with open(history_file, "rb") as f:
-        cum_rewards, steps = pickle.load(f)
+        cum_rewards, steps, time = pickle.load(f)
 
     episodes = len(cum_rewards)
     print(f'Plotting {episodes} episodes')
-    plt.plot(cum_rewards, color='green', marker='o')
-    plt.show()
-    plt.plot(steps, color='red', marker='o')
+    gamma = 0.99
+    discounted_rewards = [reward*(gamma**n_steps) for reward, n_steps in zip(cum_rewards, steps)]
+    
+    plt.scatter(range(len(discounted_rewards)), discounted_rewards, color='blue', marker='.')
     plt.show()
 
     sapientino_eval(actor, critic, env, experiment_dir, n_episodes=1)

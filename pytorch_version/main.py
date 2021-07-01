@@ -129,6 +129,9 @@ def main():
     colors = env_cfg['colors'].replace(' ', '').split(',')
     map_file = os.path.join(experiment_dir, env_cfg['map_file'])
     max_episode_timesteps = env_cfg.getint("max_episode_timesteps")
+    x0 = env_cfg.getint("initial_x")
+    y0 = env_cfg.getint("initial_y")
+    
     batch_size = agent_cfg.getint('batch_size')
     lr = agent_cfg.getfloat('learning_rate')
     seed = other_cfg.getint('seed', -1)
@@ -145,11 +148,25 @@ def main():
     Actor = getattr(importlib.import_module(nets_dir + ".nets"), "Actor")
     Critic = getattr(importlib.import_module(nets_dir + ".nets"), "Critic")
 
+    env_params = dict(
+      reward_per_step=0.0,
+      reward_outside_grid=0.0,
+      reward_duplicate_beep=0.0,
+      acceleration=0.2,
+      angular_acceleration=10.0,
+      max_velocity=0.4,
+      min_velocity=0.0,
+      max_angular_vel=40,
+      initial_position=[x0, y0],
+      tg_reward=1.0,
+    )
+
     # Create the environment
     env = SapientinoCase(
         colors=colors,
         map_file=map_file,
-        logdir=experiment_dir
+        logdir=experiment_dir,
+        params=env_params
     )
 
     # Set the max number of steps
@@ -177,7 +194,7 @@ def main():
         steps = []
         total_time = 0
 
-    cycle_interval = 10
+    cycle_interval = 100
 
     for cycles in range(int(episodes/cycle_interval)):
         
