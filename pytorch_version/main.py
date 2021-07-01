@@ -158,10 +158,11 @@ def main():
     # Initialize dimensions
     state_dim = 4 + 1
     n_actions = 5
+    n_states = env.observation_space[-1].nvec[0]
 
     # Initialize the nets
-    actor = Actor(state_dim, n_actions, len(colors))
-    critic = Critic(state_dim)
+    actor = Actor(state_dim, n_actions, n_states)
+    critic = Critic(state_dim, n_states)
 
     # Load the models if resuming
     if resume:
@@ -170,39 +171,49 @@ def main():
         critic.load_model_weights(os.path.join(experiment_dir, "critic.weights"))
         print('Loading episode history')
         with open(history_file, "rb") as f:
-            cum_rewards, steps = pickle.load(f)
+            cum_rewards, steps, total_time = pickle.load(f)
     else:
         cum_rewards = []
         steps = []
+        total_time = 0
 
-    cycle_interval = 100
+    cycle_interval = 10
 
     for cycles in range(int(episodes/cycle_interval)):
         
+        # Take the time in which the cycle starts
+        starting_time = time.time()
+
         # Train the nets
         new_cum_rewards, new_steps = sapientino_training(env, actor, critic, lr, batch_size, cycle_interval, render, render_interval)
         cum_rewards += new_cum_rewards
         steps += new_steps
-
+    
+        print()
         print('Saving model weights')
         # Save the models
         actor.save_model_weights(os.path.join(experiment_dir, "actor.weights"))
         critic.save_model_weights(os.path.join(experiment_dir, "critic.weights"))
 
+        # Compute the time so far
+        ending_time = time.time()
+        total_time += ending_time - starting_time
+
         print('Saving episode history')
         with open(history_file, "wb") as f:
-            pickle.dump((cum_rewards,steps), f)
+            pickle.dump((cum_rewards,steps,total_time), f)
 
         # Print how many episodes done so far and the total reward
         n_episodes_done = cycle_interval * (cycles+1)
         total_rwd = sum(cum_rewards)
-        print(f"[ --- Episodes completed so far: [{n_episodes_done}] --- Total reward [{total_rwd}] ---]")
+        print(f"[ --- Episodes completed so far: [{n_episodes_done}] --- Total reward [{total_rwd}] --- ", end="")
+        print("in [{:.5f} s] ---".format(total_time))
 
         # Eval the model
         if(evaluate):
             eval_rwd = sapientino_eval(actor, critic, env, render, n_episodes=1)
+    
             
-
 def sapientino_training(env, actor, critic, lr, batch_size, n_episodes, render, render_interval):
 
     # Initialize optimizers
@@ -215,6 +226,7 @@ def sapientino_training(env, actor, critic, lr, batch_size, n_episodes, render, 
     # MAIN LOOP
     cum_rewards = []
     steps = []
+    step_times = []
     for ep in range(n_episodes):
         done = False
         total_reward = 0
@@ -224,6 +236,7 @@ def sapientino_training(env, actor, critic, lr, batch_size, n_episodes, render, 
         print(f"\rCurrent train episode [{ep}]", end="")
 
         cum_rewards.append(0.)
+        step_times.append(0)
 
         while not done:
             
@@ -236,10 +249,15 @@ def sapientino_training(env, actor, critic, lr, batch_size, n_episodes, render, 
             probs = actor(state2tensor(state))
             dist = torch.distributions.Categorical(probs=probs)
             action = dist.sample()
-            
+
             # Apply the action on the env and take the observation (next_state)
+            start_time = time.time()
             next_state, reward, done, info = env.step(action.detach().data.numpy())
-           
+            end_time = time.time()
+
+            # Compute the time of a env step
+            step_times[ep] = end_time - start_time
+
             # Update cumulative reward, number of steps and the state
             cum_rewards[ep] += reward
             steps[ep] += 1
@@ -259,7 +277,10 @@ def sapientino_training(env, actor, critic, lr, batch_size, n_episodes, render, 
             avg_cum_reward = sum(cum_rewards[-10:]) / 10
             print(f' Last 10 episodes avg cum rewards: ', end="")
             print("[" + str(sum(cum_rewards[-10:]) / 10) + "]", end="")
-    
+            avg_step_time = sum(step_times[-10:]) / 10
+            avg_step_time *= 1000.0
+            print(' Step Time Mean: [{:.5f} ms]'.format(avg_step_time), end="")
+
     return cum_rewards, steps
     
 
