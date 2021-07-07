@@ -2,4 +2,3 @@
 *.svg
 experiments/*
 .DS_Store
-*.weights
