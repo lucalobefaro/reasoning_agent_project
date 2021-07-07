@@ -34,13 +34,17 @@ Tested on Ubuntu 20.04 and Mac OS 10.15.7 with python 3.8.5
 * Install environment (forked from https://github.com/cipollone/gym-sapientino-case.git):
 
 `git clone https://github.com/andreafanti/gym-sapientino-case.git`
+
 `cd gym-sapientino-case`
+
 `pip install .`
 
 * Install dependencies:
 
 `pip install pytorch==1.7.1`
+
 `pip install gym==0.17.3`
+
 `pip install matplotlib==3.4.2`
 
 * System dependencies:
