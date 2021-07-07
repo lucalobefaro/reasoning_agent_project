@@ -26,25 +26,20 @@ Then, different configurations with two colors are shown, in which the agent has
 ![](./case_2_colors_wall_tl/eval.gif)
 ![](./case_2_colors_hard_start/eval.gif)
 
-Finally, we have a simple environment with three colors:
-
-![](./case_3_colors_simple/eval.gif)
-
 
 ## Setup
 
-Tested on Ubuntu 20.04 and Mac OS 10.15.7
-with python 3.8.5
+Tested on Ubuntu 20.04 and Mac OS 10.15.7 with python 3.8.5
 
 * Install environment (forked from https://github.com/cipollone/gym-sapientino-case.git)
-'git clone https://github.com/andreafanti/gym-sapientino-case.git'
-'cd gym-sapientino-case'
-'pip install .'
+`git clone https://github.com/andreafanti/gym-sapientino-case.git`
+`cd gym-sapientino-case`
+`pip install .`
 
 * Install dependencies
-'pip install pytorch==1.7.1'
-'pip install gym==0.17.3'
-'pip install matplotlib==3.4.2'
+`pip install pytorch==1.7.1`
+`pip install gym==0.17.3`
+`pip install matplotlib==3.4.2`
 
 * System dependencies
 ImageMagick (https://imagemagick.org/index.php)
