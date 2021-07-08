@@ -14,7 +14,7 @@ A possible technique to produce an agent that can achieve temporal goals specifi
 
 ## Environment: SapientinoCase
 
-In this environment we have a planar unicycle robot whose goal is to visit the colored cells of a 2D grid in a specific order. This environment has a low–dimensional observation space, which allows to use simple Feed–Forward Neural Networks; moreover, since the task depends on a 2D grid map, it allows to fine–tune the difficulty of the task as needed. In fact, we also compared results obtained by initializing the weights of the expert networks for harder maps by using weights previously trained on a simpler map (still exposing a non–Markovian reward).
+In this environment we have a planar unicycle robot whose goal is to visit the colored cells of a continuous 2D grid in a specific order. This environment has a low–dimensional observation space, which allows to use simple Feed–Forward Neural Networks; moreover, since the task depends on a continuous 2D grid map, it allows to fine–tune the difficulty of the task as needed. In fact, we also compared results obtained by initializing the weights of the expert networks for harder maps by using weights previously trained on a simpler map (still exposing a non–Markovian reward).
 
 In the gif below are shown some examples of the environment. First we have a one color setting: 
 
