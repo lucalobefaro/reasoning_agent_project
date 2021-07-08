@@ -1,4 +1,4 @@
-# Policy Network for Non-Markovian Reinforcement Learning
+# Policy Networks for Non-Markovian Reinforcement Learning Rewards
 
 ## Authors
 
