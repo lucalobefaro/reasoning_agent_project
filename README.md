@@ -11,6 +11,8 @@
 
 A possible technique to produce an agent that can achieve temporal goals specified through 𝐿𝑇𝐿𝑓/𝐿𝐷𝐿𝑓 formulas is to use Reinforcement Learning (RL). However, the theoretical framework of most RL algorithms expects that the task can be modeled with a Markov Decision Process (MDP), a key assumption of which is that the next state and reward at each step only depend on the current state–action pair. This is clearly not true in general for temporal goals. Here we adopt the approach for environments in which only the reward is non–Markovian producing an extended MDP. More specifically, a very convenient way to integrate a temporal goal in an MDP is to compute a DFA from the temporal formula for the non–Markovian goal, and then augment the original MDP state with the state of this automaton. In practice, however, simply appending the automaton state to the environment observation which is fed to the agent can be problematic. The most obvious method to overcome this is to have a collection of separate "expert" networks,one for each automaton state, which are still fed the original environment observation, and are selected based on the current state of the automaton. Here we compared this baseline approach with sharing all non–output layers of the expert networks, by using the Advantage Actor Critic (A2C) algorithm on the SapientinoCase environment. 
 
+[Report](Policy_Networks_for_Non_Markovian_Reinforcement_Learning_Rewards.pdf)
+
 
 ## Environment: SapientinoCase
 
